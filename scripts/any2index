@@ -1,0 +1,89 @@
+#!/usr/bin/env perl 
+
+use warnings;
+use strict;
+use Data::Dumper;
+use Getopt::Long;
+use File::Basename qw/basename/;
+use Bio::Tools::GuessSeqFormat ();
+use File::Which qw/which/;
+
+local $0 = basename $0;
+sub logmsg{local $0=basename $0; print STDERR "$0: @_\n";}
+
+our %indexSub = (
+  fasta => sub{indexFasta(@_)},
+);
+
+# Check executables
+sub checkEnv{
+  for my $exe(qw(samtools)){
+    which($exe) or logmsg "WARNING: could not find $exe in your path";
+  }
+}
+
+exit(main());
+
+sub main{
+  my $settings={};
+  GetOptions($settings,qw(help nocheck)) or die $!;
+  usage() if($$settings{help} || !@ARGV);
+
+  # By default, check dependencies. Users might not want
+  # to check all dependencies and so they can stop it
+  # with --nocheck
+  if(defined($$settings{nocheck})){
+    checkEnv();
+  }
+
+  for my $infile(@ARGV){
+    if(-d $infile){
+      logmsg "SKIP: directory $infile";
+      next;
+    }
+    indexFile($infile,$settings);
+  }
+
+  return 0;
+}
+
+sub indexFile{
+  my($infile, $settings) = @_;
+  my $guesser = Bio::Tools::GuessSeqFormat->new( -file => $infile );
+  my $format  = $guesser->guess() || "";
+  $format = lc($format); # ensure it's easy to string match later
+
+  if(!$format || $format eq 'raw'){
+    logmsg "SKIP: I could not understand the format for $infile";
+    return 0;
+  }
+
+  if(!$indexSub{$format}){
+    die "ERROR: do not know how to format $infile with format $format";
+  }
+
+  logmsg "Indexing '$infile' ($format)";
+  $indexSub{$format}($infile, $settings);
+}
+
+sub indexFasta{
+  my($fasta, $settings) = @_;
+  system("samtools faidx '$fasta'");
+  if($?){
+    die "Could not run samtools faidx '$fasta': $!";
+  }
+
+  system("bowtie2-build '$fasta' '$fasta'");
+  if($?){
+    die "Could not run bowtie2-build on '$fasta': $!";
+  }
+}
+
+sub usage{
+  print "$0: indexes any bioinformatics file appropriately
+  Usage: $0 [options] file.ext
+  --nocheck  Do not check dependencies
+  --help     This useful help menu
+";
+  exit 0;
+}
