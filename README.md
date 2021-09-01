@@ -13,5 +13,32 @@ Set your `PATH` to include the scripts directory
 
 # Indexes available
 
-Fasta only. Contributions welcome.
+| format | index |
+|--------|-------|
+| fasta  | samtools faidx |
+| fasta  | bowie2-build |
 
+# contributions welcome
+
+## more indices
+
+| format | index |
+|--------|-------|
+| fasta  | bwa build |
+| fasta  | formatblastdb |
+| fasta  | smalt index |
+| bed | bedtools |
+| sam  | samtools view -b && sort && index |
+| bam  | samtools sort && index |
+
+## more ideas
+
+* temporary folder with all indices
+Ctrl-c to clean up the folder. 
+Strategy is to run this script in the background while using the temp dir. 
+* flag to ignore files it can't index
+* flag to specify exact index to run
+  * secondary flag for in depth vs fast
+  * tertiary flag to bring in custom options.
+    Or some kind of config. 
+* use sane defaults for all methods
