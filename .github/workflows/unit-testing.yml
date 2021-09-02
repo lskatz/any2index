@@ -18,6 +18,7 @@ jobs:
         uses: shogo82148/actions-setup-perl@v1
         with:
           perl-version: ${{ matrix.perl }}
+          cpanm --installdeps . --verbose --force -l .
       - name: apt-get
         run:  |
           sudo apt-get install ncbi-blast+ bowtie2 samtools bioperl
@@ -25,8 +26,4 @@ jobs:
           samtools --version
           blastn -version
       - run: perl -V
-      - name: cpanm
-        run:  |
-          perl Makefile.PL
-          cpanm --installdeps . --verbose --force -l .
       - run: prove -lv t
