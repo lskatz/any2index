@@ -10,15 +10,59 @@ use File::Which qw/which/;
 use FindBin qw/$RealBin/;
 use lib "$RealBin/../lib/perl5";
 
-our $VERSION = 0.1;
+our $VERSION = 0.2;
+
+# A hash of formats, then individual methods.
+# For each individual method, required keys are
+#   * command => the linux command. __FILE__ for infile
+#   * help    => description
+#   * querying=> description on how to query this index
+my %indexes = (
+  fasta => {
+    samtoolsFaidx => {
+      command => "samtools faidx __FILE__",
+      help    => "Indexes for the samtools package",
+      querying=> "samtools faidx __FILE__ contig:start-stop",
+    },
+    bowtie2Build  => {
+      command => "bowtie2-build __FILE__ __FILE__",
+      help    => "Indexes for bowtie2",
+      querying=> "bowtie2 -x __FILE__ -p __THREADS__ -1 R1.fastq.gz -2 R2.fastq.gz > out.sam",
+    },
+    makeBlastDb   => {
+      command => "makeblastdb -in __FILE__ -dbtype nucl -parse_seqids",
+      help    => "Indexes BLASTn",
+      querying=> "blastn -in __FILE__ -query QUERY.fasta",
+    },
+  },
+  bam   => {
+    samtoolsIndex => {
+      command => "samtools index __FILE__",
+      help    => "Indexes a bam for samtools",
+      querying=> "samtools view __FILE__",
+    },
+  },
+);
+
+# Ensure the integrity of the indexing hash
+sub sanityCheckOnIndexMethods{
+  my($settings) = @_;
+
+  while(my($format, $indexing) = each(%indexes)){
+    while(my($indexer, $struct) = each(%$indexing)){
+      # Check for required keys
+      for my $key(qw(help command querying)){
+        if(!$$struct{$key}){
+          die "ERROR: indexing hash does not have a $key key";
+        }
+      }
+    }
+  }
+}
+
 
 local $0 = basename $0;
 sub logmsg{local $0=basename $0; print STDERR "$0: @_\n";}
-
-our %indexSub = (
-  fasta => sub{indexFasta(@_)},
-  bam   => sub{indexBam(@_)},
-);
 
 # Check executables
 sub checkEnv{
@@ -31,7 +75,7 @@ exit(main());
 
 sub main{
   my $settings={};
-  GetOptions($settings,qw(help nocheck)) or die $!;
+  GetOptions($settings,qw(help nocheck dryrun|dry-run)) or die $!;
   usage() if($$settings{help} || !@ARGV);
 
   # By default, check dependencies. Users might not want
@@ -41,92 +85,56 @@ sub main{
     checkEnv();
   }
 
+  sanityCheckOnIndexMethods($settings);
+
+  my $guesser = Bio::Tools::GuessSeqFormat->new();
+
   for my $infile(@ARGV){
     if(-d $infile){
       logmsg "SKIP: directory $infile";
       next;
     }
-    indexFile($infile,$settings);
+    logmsg "FILE: $infile";
+
+    # Guess the file format
+    $guesser->file($infile);
+    # ... but don't spin wheels on things we can't index
+    my $format = $guesser->guess;
+    if(!$format){
+      logmsg "SKIP: I do not understand format for $infile";
+      next;
+    }
+    if(!$indexes{$format}){
+      logmsg "SKIP: I do not understand format '$format' for $infile";
+      next;
+    }
+
+    # Run the index commands
+    for my $indexer(sort keys(%{ $indexes{$format} })){
+      my $command = $indexes{$format}{$indexer}{command};
+
+      # Replace any resrved words and evaluate them
+      $command =~ s/__FILE__/'$infile'/g;
+
+      if($$settings{'dryrun'}){
+        print "$command\n";
+      } else {
+        my $failed = system($command.">& /dev/null");
+        if($failed){
+          die "ERROR with running $command: $!\n  Error on $infile and $indexer";
+        }
+      }
+    }
   }
 
   return 0;
-}
-
-sub indexFile{
-  my($infile, $settings) = @_;
-  my $guesser = Bio::Tools::GuessSeqFormat->new( -file => $infile );
-  my $format  = $guesser->guess() || "";
-  $format = lc($format); # ensure it's easy to string match later
-
-  if(!$format || $format eq 'raw'){
-    logmsg "SKIP: I could not understand the format for $infile";
-    return 0;
-  }
-
-  if(!$indexSub{$format}){
-    die "ERROR: do not know how to format $infile with format $format";
-  }
-
-  # Call the indexing function based on the file format,
-  # using the %indexSub hash.
-  logmsg "Indexing '$infile' ($format)";
-  $indexSub{$format}($infile, $settings);
-}
-
-# Index a fasta with whichever methods
-sub indexFasta{
-  my($fasta, $settings) = @_;
-  samtoolsFaidx($fasta, $settings);
-  bowtie2Build($fasta, $settings);
-  makeBlastDb($fasta, $settings);
-}
-
-# Index a fasta with samtools faidx
-sub samtoolsFaidx{
-  my($fasta, $settings) = @_;
-  system("samtools faidx '$fasta'");
-  if($?){
-    die "Could not run samtools faidx '$fasta': $!";
-  }
-}
-
-# Index a fasta with bowtie2-build
-sub bowtie2Build{
-  my($fasta, $settings) = @_;
-  system("bowtie2-build '$fasta' '$fasta'");
-  if($?){
-    die "Could not run bowtie2-build on '$fasta': $!";
-  }
-}
-
-# Make a blast+ database
-# TODO detect nucleotide or protein instead of assuming nucleotide
-sub makeBlastDb{
-  my($fasta, $settings) = @_;
-  system("makeblastdb -in '$fasta' -dbtype nucl -parse_seqids");
-  if($?){
-    die "Could not make a blast database on '$fasta': $!";
-  }
-}
-
-# Index a bam file
-sub indexBam{
-  my($bam, $settings) = @_;
-  samtoolsIndexBam($bam, $settings);
-}
-# Index a bam file with samtools index
-sub samtoolsIndexBam{
-  my($bam, $settings) = @_;
-  system("samtools index '$bam'");
-  if($?){
-    die "Could not index with samtools '$bam': $!";
-  }
 }
 
 sub usage{
   print "$0: indexes any bioinformatics file appropriately
   Usage: $0 [options] file.ext
   --nocheck  Do not check dependencies
+  --dry-run  Print the commands to stdout and do not execute
   --help     This useful help menu
 ";
   exit 0;
