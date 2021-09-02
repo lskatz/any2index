@@ -7,7 +7,7 @@ use File::Temp qw/tempdir/;
 use File::Basename qw/basename/;
 use File::chdir; # lets you modify $CWD for local chdir
 use FindBin qw/$RealBin/;
-use lib "$FindBin/../lib/perl5";
+use lib "$RealBin/../lib/perl5";
 
 $ENV{PATH}="$RealBin/../scripts:$ENV{PATH}";
 my $asm = "$RealBin/NC001416.fasta";
