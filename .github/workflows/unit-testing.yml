@@ -25,5 +25,5 @@ jobs:
           samtools --version
           blastn -version
       - run: perl -V
-      - run: cpanm --installdeps .
+      - run: cpanm --installdeps . --verbose --force
       - run: prove -lv t
