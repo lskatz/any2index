@@ -13,6 +13,7 @@ sub logmsg{local $0=basename $0; print STDERR "$0: @_\n";}
 
 our %indexSub = (
   fasta => sub{indexFasta(@_)},
+  bam   => sub{indexBam(@_)},
 );
 
 # Check executables
@@ -62,20 +63,59 @@ sub indexFile{
     die "ERROR: do not know how to format $infile with format $format";
   }
 
+  # Call the indexing function based on the file format,
+  # using the %indexSub hash.
   logmsg "Indexing '$infile' ($format)";
   $indexSub{$format}($infile, $settings);
 }
 
+# Index a fasta with whichever methods
 sub indexFasta{
+  my($fasta, $settings) = @_;
+  samtoolsFaidx($fasta, $settings);
+  bowtie2Build($fasta, $settings);
+  makeBlastDb($fasta, $settings);
+}
+
+# Index a fasta with samtools faidx
+sub samtoolsFaidx{
   my($fasta, $settings) = @_;
   system("samtools faidx '$fasta'");
   if($?){
     die "Could not run samtools faidx '$fasta': $!";
   }
+}
 
+# Index a fasta with bowtie2-build
+sub bowtie2Build{
+  my($fasta, $settings) = @_;
   system("bowtie2-build '$fasta' '$fasta'");
   if($?){
     die "Could not run bowtie2-build on '$fasta': $!";
+  }
+}
+
+# Make a blast+ database
+# TODO detect nucleotide or protein instead of assuming nucleotide
+sub makeBlastDb{
+  my($fasta, $settings) = @_;
+  system("makeblastdb -in '$fasta' -dbtype nucl -parse_seqids");
+  if($?){
+    die "Could not make a blast database on '$fasta': $!";
+  }
+}
+
+# Index a bam file
+sub indexBam{
+  my($bam, $settings) = @_;
+  samtoolsIndexBam($bam, $settings);
+}
+# Index a bam file with samtools index
+sub samtoolsIndexBam{
+  my($bam, $settings) = @_;
+  system("samtools index '$bam'");
+  if($?){
+    die "Could not index with samtools '$bam': $!";
   }
 }
 
@@ -87,3 +127,4 @@ sub usage{
 ";
   exit 0;
 }
+
