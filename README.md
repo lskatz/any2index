@@ -1,7 +1,7 @@
 # any2index
 
 Index any file for bioinformatics.
-Contributions welcome.
+Sane defaults.
 
 # Installation
 
@@ -18,6 +18,7 @@ Set your `PATH` to include the scripts directory
 |--------|-------|
 | fasta  | samtools faidx |
 | fasta  | bowie2-build |
+| fasta  | formatblastdb |
 
 # contributions welcome
 
@@ -26,7 +27,6 @@ Set your `PATH` to include the scripts directory
 | format | index |
 |--------|-------|
 | fasta  | bwa build |
-| fasta  | formatblastdb |
 | fasta  | smalt index |
 | bed | bedtools |
 | sam  | samtools view -b && sort && index |
