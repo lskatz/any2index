@@ -14,18 +14,18 @@ jobs:
     name: Perl ${{ matrix.perl }} on ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v2
+      - name: apt-get
+        run:  |
+          sudo apt-get install ncbi-blast+ bowtie2 samtools libberkeleydb-perl
+          bowtie2 --version
+          samtools --version
+          blastn -version
       - name: Set up perl
         uses: shogo82148/actions-setup-perl@v1
         with:
           perl-version: ${{ matrix.perl }}
           install-modules-with: cpanm
-          install-modules-args: --with-develop --with-configure
+          install-modules-args: --with-develop --with-configure --force
           install-modules: Bio::Tools::GuessSeqFormat File::chdir File::Which
-      - name: apt-get
-        run:  |
-          sudo apt-get install ncbi-blast+ bowtie2 samtools bioperl
-          bowtie2 --version
-          samtools --version
-          blastn -version
       - run: perl -V
       - run: prove -lv t
