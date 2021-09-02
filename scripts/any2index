@@ -8,6 +8,8 @@ use File::Basename qw/basename/;
 use Bio::Tools::GuessSeqFormat ();
 use File::Which qw/which/;
 
+our $VERSION = 0.1;
+
 local $0 = basename $0;
 sub logmsg{local $0=basename $0; print STDERR "$0: @_\n";}
 
