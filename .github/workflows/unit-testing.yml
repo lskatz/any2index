@@ -20,6 +20,7 @@ jobs:
           perl-version: ${{ matrix.perl }}
           install-modules-with: cpanm
           install-modules-args: --with-develop --with-configure
+          install-modules: Bio::Tools::GuessSeqFormat File::chdir File::Which
       - name: apt-get
         run:  |
           sudo apt-get install ncbi-blast+ bowtie2 samtools bioperl
