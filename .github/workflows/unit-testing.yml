@@ -17,9 +17,6 @@ jobs:
       - name: apt-get
         run:  |
           sudo apt-get install ncbi-blast+ bowtie2 samtools libberkeleydb-perl libgd-dev libcdb-file-perl
-          bowtie2 --version
-          samtools --version
-          blastn -version
       - name: Set up perl
         uses: shogo82148/actions-setup-perl@v1
         with:
@@ -29,5 +26,11 @@ jobs:
           #install-modules: Bio::Tools::GuessSeqFormat File::chdir File::Which
       #- run: yes no | sudo $(which cpanm) -l local --installdeps --force
       - run: yes no | sudo $(which cpanm) -l local Bio::Tools::GuessSeqFormat File::chdir File::Which --force
+      - name: versions
+        run:  |
+          bowtie2 --version && echo
+          samtools --version && echo
+          blastn -version && echo
       - run: perl -V
-      - run: prove -lv t
+      - run: make && make test
+      #- run: prove -lv t
