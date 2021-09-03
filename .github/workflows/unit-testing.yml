@@ -33,5 +33,6 @@ jobs:
           samtools --version && echo
           blastn -version && echo
       - run: perl -V
-      - run: perl Makefile.PL && make && make test
+      - name: make test
+        run: perl Makefile.PL && make && make test
       #- run: prove -lv t
