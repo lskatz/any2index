@@ -14,33 +14,22 @@ Set your `PATH` to include the scripts directory
 
 # Indexes available
 
+To list available indexes:
+
+    any2index --list
+
+To get help on any one index:
+
+    any2index --help-with bowtie2Build
+
 | format | index |
 |--------|-------|
 | fasta  | samtools faidx |
 | fasta  | bowie2-build |
 | fasta  | formatblastdb |
+| bam  | samtools sort && index |
 
 # contributions welcome
 
-## more indices
+_More information_: [CONTRIBUTING.md](CONTRIBUTING.md)
 
-| format | index |
-|--------|-------|
-| fasta  | bwa build |
-| fasta  | smalt index |
-| bed | bedtools |
-| sam  | samtools view -b && sort && index |
-| bam  | samtools sort && index |
-| vcf.gz | bcftools index |
-
-## more ideas
-
-* temporary folder with all indices
-Strategy is to run this script in the background while using the temp dir. 
-Ctrl-c to clean up the folder. 
-* flag to ignore files it can't index
-* flag to specify exact index to run
-  * secondary flag for in depth vs fast
-  * tertiary flag to bring in custom options.
-    Or some kind of config. 
-* use sane defaults for all methods
