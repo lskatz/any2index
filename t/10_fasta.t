@@ -40,7 +40,7 @@ subtest 'fasta' => sub{
   diag `cat $log`;
   diag "";
   note `cat $log`;
-  exit;
+  BAIL_OUT("DEBUG");
   my $exit_code = system($command);
   is($exit_code, 0, "$command");
   if($exit_code){

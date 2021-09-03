@@ -129,7 +129,7 @@ sub indexTheFile{
     if($$settings{'dryrun'}){
       print "# COMMAND\n  $command\n";
     } else {
-      my $failed = system($command.">& /dev/null");
+      my $failed = system($command.">/dev/null 2>&1");
       if($failed){
         die "ERROR with running $command: $!\n  Error on $infile and $$method{name}";
       }
