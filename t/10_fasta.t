@@ -34,7 +34,8 @@ subtest 'fasta' => sub{
   $CWD = $tempdir;
   my $asmLink = basename($asm);
 
-  my $command = "any2index '$asmLink' > any2index.log 2>&1";
+  my $log = "any2index.log";
+  my $command = "any2index '$asmLink' >$log 2>$log";
   my $exit_code = system($command);
   is($exit_code, 0, "$command");
   if($exit_code){
