@@ -24,7 +24,7 @@ jobs:
           install-modules-with: cpanm
           install-modules-args: --force
           enable-modules-cache: true
-          install-modules: Bio::Tools::GuessSeqFormat File::chdir File::Which
+          install-modules: DB_File::HASHINFO Bio::Tools::GuessSeqFormat File::chdir File::Which
       #- run: yes no | sudo $(which cpanm) -l local --installdeps --force
       #- run: yes no | sudo $(which cpanm) -l local Bio::Tools::GuessSeqFormat File::chdir File::Which --force
       - name: versions
