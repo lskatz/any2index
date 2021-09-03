@@ -36,11 +36,6 @@ subtest 'fasta' => sub{
 
   my $log = "any2index.log";
   my $command = "any2index '$asmLink' >$log 2>$log";
-  diag `$command`;
-  diag `cat $log`;
-  diag "";
-  note `cat $log`;
-  BAIL_OUT("DEBUG");
   my $exit_code = system($command);
   is($exit_code, 0, "$command");
   if($exit_code){
