@@ -16,7 +16,7 @@ jobs:
       - uses: actions/checkout@v2
       - name: apt-get
         run:  |
-          sudo apt-get install ncbi-blast+ bowtie2 samtools libberkeleydb-perl libgd-dev libcdb-file-perl
+          sudo apt-get install ncbi-blast+ bowtie2 samtools libdb-dev libberkeleydb-perl libgd-dev libcdb-file-perl
       - name: Set up perl
         uses: shogo82148/actions-setup-perl@v1
         with:
