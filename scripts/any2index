@@ -19,6 +19,7 @@ our $VERSION = 0.3;
 #   * command => the linux command. __FILE__ for infile
 #   * help    => description
 #   * querying=> description on how to query this index
+my @requiredMethodKey = qw(name format command help querying);
 my @indexes = (
   {
     name    => "samtoolsFaidx",
@@ -56,7 +57,7 @@ sub sanityCheckOnIndexMethods{
 
   for my $method (@indexes){
     # Check for required keys
-    for my $key(qw(name format help command querying)){
+    for my $key(@requiredMethodKey){
       if(!$$method{$key}){
         die "ERROR: indexing hash does not have a $key key:\n".Dumper($method);
       }
@@ -79,8 +80,8 @@ exit(main());
 
 sub main{
   my $settings={};
-  GetOptions($settings,qw(help nocheck dryrun|dry-run)) or die $!;
-  usage() if($$settings{help} || !@ARGV);
+  GetOptions($settings,qw(help help-with=s nocheck list dryrun|dry-run version)) or die $!;
+  usage() if($$settings{help});
 
   # By default, check dependencies. Users might not want
   # to check all dependencies and so they can stop it
@@ -88,8 +89,24 @@ sub main{
   if(defined($$settings{nocheck})){
     checkEnv();
   }
+  if($$settings{version}){
+    print "$0 v$VERSION\n";
+    return 0;
+  }
 
   sanityCheckOnIndexMethods($settings);
+
+  if($$settings{list}){
+    listIndexers($settings);
+    return 0;
+  }
+  if($$settings{'help-with'}){
+    indexerHelp($$settings{'help-with'}, $settings);
+    return 0;
+  }
+
+  # Check for argv if we aren't running any special commands
+  usage() if(!@ARGV);
 
   my $guesser = Bio::Tools::GuessSeqFormat->new();
 
@@ -137,12 +154,42 @@ sub indexTheFile{
   }
 }
 
+# Print a pretty table for different indexing methods
+sub listIndexers{
+  my($settings) = @_;
+
+  print join("\t", qw(name format help))."\n";
+  for my $m (sort {$$a{name} cmp $$b{name}} @indexes){
+    print join("\t", $$m{name}, $$m{format}, $$m{help})."\n";
+  }
+}
+
+# Give in-depth help on an indexing method
+sub indexerHelp{
+  my($indexerName, $settings) = @_;
+  
+  for my $m(@indexes){
+    if($indexerName =~ /^$$m{name}$/i){
+      print "$$m{name}: for $$m{format} files.\n";
+      print "  $$m{help}\n";
+      print "Method: $$m{command}\n";
+      print "Querying: $$m{querying}\n";
+      return 1;
+    }
+  }
+
+  die "ERROR: I do not understand $indexerName indexer. Run $0 --list for names.";
+}
+
 sub usage{
   print "$0: indexes any bioinformatics file appropriately
   Usage: $0 [options] file.ext
-  --nocheck  Do not check dependencies
-  --dry-run  Print the commands to stdout and do not execute
-  --help     This useful help menu
+  --list       List all the possible indexers
+  --nocheck    Do not check dependencies
+  --dry-run    Print the commands to stdout and do not execute
+  --help-with  Give more help on a particular indexer
+  --help       This useful help menu
+  --version
 ";
   exit 0;
 }
