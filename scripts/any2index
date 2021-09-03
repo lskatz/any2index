@@ -10,7 +10,7 @@ use File::Which qw/which/;
 use FindBin qw/$RealBin/;
 use lib "$RealBin/../lib/perl5";
 
-our $VERSION = 0.3;
+our $VERSION = 0.4;
 
 # An array of methods for indexing. Each method is a hash.
 # For each individual method, required keys are

@@ -9,10 +9,8 @@ Set your `PATH` to include the scripts directory
 
 # Usage
 
-    any2index *.fasta
+    any2index *.fasta *.bam
     any2index --help
-
-# Indexes available
 
 To list available indexes:
 
@@ -21,6 +19,10 @@ To list available indexes:
 To get help on any one index:
 
     any2index --help-with bowtie2Build
+
+# Highlighted indexes
+
+This list might not be comprehensive
 
 | format | index |
 |--------|-------|
