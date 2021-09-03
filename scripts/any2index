@@ -10,37 +10,43 @@ use File::Which qw/which/;
 use FindBin qw/$RealBin/;
 use lib "$RealBin/../lib/perl5";
 
-our $VERSION = 0.2;
+our $VERSION = 0.3;
 
-# A hash of formats, then individual methods.
+# An array of methods for indexing. Each method is a hash.
 # For each individual method, required keys are
+#   * name    => unique name for method
+#   * format  => file format, e.g., fasta
 #   * command => the linux command. __FILE__ for infile
 #   * help    => description
 #   * querying=> description on how to query this index
-my %indexes = (
-  fasta => {
-    samtoolsFaidx => {
-      command => "samtools faidx __FILE__",
-      help    => "Indexes for the samtools package",
-      querying=> "samtools faidx __FILE__ contig:start-stop",
-    },
-    bowtie2Build  => {
-      command => "bowtie2-build __FILE__ __FILE__",
-      help    => "Indexes for bowtie2",
-      querying=> "bowtie2 -x __FILE__ -p __THREADS__ -1 R1.fastq.gz -2 R2.fastq.gz > out.sam",
-    },
-    makeBlastDb   => {
-      command => "makeblastdb -in __FILE__ -dbtype nucl -parse_seqids",
-      help    => "Indexes BLASTn",
-      querying=> "blastn -in __FILE__ -query QUERY.fasta",
-    },
+my @indexes = (
+  {
+    name    => "samtoolsFaidx",
+    format  => "fasta",
+    command => "samtools faidx __FILE__",
+    help    => "Indexes for the samtools package",
+    querying=> "samtools faidx __FILE__ contig:start-stop",
   },
-  bam   => {
-    samtoolsIndex => {
-      command => "samtools index __FILE__",
-      help    => "Indexes a bam for samtools",
-      querying=> "samtools view __FILE__",
-    },
+  {
+    name    => "bowtie2Build",
+    format  => "fasta",
+    command => "bowtie2-build __FILE__ __FILE__",
+    help    => "Indexes for bowtie2",
+    querying=> "bowtie2 -x __FILE__ -p __THREADS__ -1 R1.fastq.gz -2 R2.fastq.gz > out.sam",
+  },
+  {
+    name    => "makeBlastDb",
+    format  => "fasta",
+    command => "makeblastdb -in __FILE__ -dbtype nucl -parse_seqids",
+    help    => "Indexes BLASTn",
+    querying=> "blastn -in __FILE__ -query QUERY.fasta",
+  },
+  {
+    name    => "samtoolsIndex",
+    format  => "bam",
+    command => "samtools index __FILE__",
+    help    => "Indexes a bam for samtools",
+    querying=> "samtools view __FILE__",
   },
 );
 
@@ -48,13 +54,11 @@ my %indexes = (
 sub sanityCheckOnIndexMethods{
   my($settings) = @_;
 
-  while(my($format, $indexing) = each(%indexes)){
-    while(my($indexer, $struct) = each(%$indexing)){
-      # Check for required keys
-      for my $key(qw(help command querying)){
-        if(!$$struct{$key}){
-          die "ERROR: indexing hash does not have a $key key";
-        }
+  for my $method (@indexes){
+    # Check for required keys
+    for my $key(qw(name format help command querying)){
+      if(!$$method{$key}){
+        die "ERROR: indexing hash does not have a $key key:\n".Dumper($method);
       }
     }
   }
@@ -100,34 +104,37 @@ sub main{
     $guesser->file($infile);
     # ... but don't spin wheels on things we can't index
     my $format = $guesser->guess;
-    if(!$format){
+    if(!$format || $format eq 'raw'){
       logmsg "SKIP: I do not understand format for $infile";
       next;
     }
-    if(!$indexes{$format}){
-      logmsg "SKIP: I do not understand format '$format' for $infile";
-      next;
-    }
 
-    # Run the index commands
-    for my $indexer(sort keys(%{ $indexes{$format} })){
-      my $command = $indexes{$format}{$indexer}{command};
+    indexTheFile($infile, $format, $settings);
 
-      # Replace any resrved words and evaluate them
-      $command =~ s/__FILE__/'$infile'/g;
-
-      if($$settings{'dryrun'}){
-        print "$command\n";
-      } else {
-        my $failed = system($command.">& /dev/null");
-        if($failed){
-          die "ERROR with running $command: $!\n  Error on $infile and $indexer";
-        }
-      }
-    }
   }
 
   return 0;
+}
+
+# Run the indexers on the file
+sub indexTheFile{
+  my($infile, $format, $settings) = @_;
+  # Run the index commands
+  for my $method (sort grep{$$_{format} eq $format} @indexes){
+    my $command = $$method{command};
+
+    # Replace any resrved words and evaluate them
+    $command =~ s/__FILE__/'$infile'/g;
+
+    if($$settings{'dryrun'}){
+      print "# COMMAND\n  $command\n";
+    } else {
+      my $failed = system($command.">& /dev/null");
+      if($failed){
+        die "ERROR with running $command: $!\n  Error on $infile and $$method{name}";
+      }
+    }
+  }
 }
 
 sub usage{

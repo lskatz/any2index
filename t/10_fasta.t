@@ -38,6 +38,7 @@ subtest 'fasta' => sub{
   my $exit_code = system($command);
   is($exit_code, 0, "$command");
   if($exit_code){
+    diag "any2index log:";
     diag `cat any2index.log`;
     BAIL_OUT("Failed to run any2index");
   }
