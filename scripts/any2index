@@ -92,6 +92,7 @@ sub sanityCheckOnIndexMethods{
 my %formats = (
   fasta => [
     qr/^>/,
+    qr/\w/,
   ],
   fastq => [
     qr/^@/,
@@ -120,7 +121,7 @@ exit(main());
 
 sub main{
   my $settings={};
-  GetOptions($settings,qw(help help-with=s nocheck list dryrun|dry-run version)) or die $!;
+  GetOptions($settings,qw(help help-with=s nocheck list dryrun|dry-run index-with=s version)) or die $!;
   usage() if($$settings{help});
 
   # By default, check dependencies. Users might not want
@@ -175,6 +176,13 @@ sub indexTheFile{
   my($infile, $format, $settings) = @_;
   # Run the index commands
   for my $method (sort grep{$$_{format} eq $format} @indexes){
+    # If a particular indexer was named, then only index with that.
+    # This indexer must also apply to this format due to the outer loop's grep.
+    if($$settings{'index-with'}){
+      if(lc($$method{name}) ne lc($$settings{'index-with'})){
+        next;
+      }
+    }
     my $command = $$method{command};
 
     # Replace any resrved words and evaluate them
@@ -253,6 +261,7 @@ sub usage{
   --nocheck    Do not check dependencies
   --dry-run    Print the commands to stdout and do not execute
   --help-with  Give more help on a particular indexer
+  --index-with Index the file(s) with a single named indexer
   --help       This useful help menu
   --version
 ";
