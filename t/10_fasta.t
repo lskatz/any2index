@@ -19,11 +19,11 @@ subtest 'executables' => sub{
     BAIL_OUT("Could not find any2index in the path");
   }
 
-  my @executable = qw(samtools makeblastdb bowtie2-build);
+  my @executable = qw(mash samtools makeblastdb bowtie2-build);
   plan tests => scalar(@executable);
   for my $exe(@executable){
     my $path = which($exe);
-    is(-x $path, 1, "$exe is executable");
+    is(-x $path, 1, "Find executable $exe and that it is executable");
   }
 };
 
