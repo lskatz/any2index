@@ -16,7 +16,7 @@ jobs:
       - uses: actions/checkout@v2
       - name: apt-get
         run:  |
-          sudo apt-get install ncbi-blast+ bowtie2 samtools libdb-dev libberkeleydb-perl libgd-dev libcdb-file-perl
+          sudo apt-get install ncbi-blast+ bowtie2 samtools mash
       - name: Set up perl
         uses: shogo82148/actions-setup-perl@v1
         with:
@@ -24,7 +24,7 @@ jobs:
           install-modules-with: cpanm
           install-modules-args: --force
           enable-modules-cache: true
-          install-modules: DB_File::HASHINFO Bio::Tools::GuessSeqFormat File::chdir File::Which
+          install-modules: IO::Uncompress::AnyUncompress File::chdir File::Which
       - name: versions
         run:  |
           bowtie2 --version && echo

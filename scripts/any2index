@@ -5,12 +5,13 @@ use strict;
 use Data::Dumper;
 use Getopt::Long;
 use File::Basename qw/basename/;
-use Bio::Tools::GuessSeqFormat ();
+#use Bio::Tools::GuessSeqFormat ();
+use IO::Uncompress::AnyUncompress;
 use File::Which qw/which/;
 use FindBin qw/$RealBin/;
 use lib "$RealBin/../lib/perl5";
 
-our $VERSION = 0.4;
+our $VERSION = 0.5;
 
 # An array of methods for indexing. Each method is a hash.
 # For each individual method, required keys are
@@ -43,9 +44,30 @@ my @indexes = (
     querying=> "blastn -in __FILE__ -query QUERY.fasta",
   },
   {
+    name    => "mashFasta",
+    format  => "fasta",
+    command => "mash sketch __FILE__",
+    help    => "Sketches a fasta",
+    querying=> "mash dist __FILE__",
+  },
+  {
+    name    => "mashFastq",
+    format  => "fastq.gz",
+    command => "mash sketch __FILE__",
+    help    => "Sketches a fastq.gz",
+    querying=> "mash dist __FILE__",
+  },
+  {
     name    => "samtoolsIndex",
     format  => "bam",
     command => "samtools index __FILE__",
+    help    => "Indexes a bam for samtools",
+    querying=> "samtools view __FILE__",
+  },
+  {
+    name    => "samtoolsIndex",
+    format  => "sam",
+    command => "samtools view -h __FILE__ > __FILE__.tmp && samtools sort -o __FILE__.bam __FILE__.tmp && rm __FILE__.tmp && samtools index __FILE__.bam",
     help    => "Indexes a bam for samtools",
     querying=> "samtools view __FILE__",
   },
@@ -65,6 +87,24 @@ sub sanityCheckOnIndexMethods{
   }
 }
 
+# Regexp for each line of an input file to detect a format,
+# with inspiration from any2fasta.
+my %formats = (
+  fasta => [
+    qr/^>/,
+  ],
+  fastq => [
+    qr/^@/,
+    qr/\w+/,
+    qr/^\+/,
+  ],
+  bam   => [
+    qr/^BAM\x01\xe8\x00\x00\x00/,
+  ],
+  sam   => [
+    qr/^@(HD|SQ|RG|PG|CO)/,
+  ],
+);
 
 local $0 = basename $0;
 sub logmsg{local $0=basename $0; print STDERR "$0: @_\n";}
@@ -108,8 +148,6 @@ sub main{
   # Check for argv if we aren't running any special commands
   usage() if(!@ARGV);
 
-  my $guesser = Bio::Tools::GuessSeqFormat->new();
-
   for my $infile(@ARGV){
     if(-d $infile){
       logmsg "SKIP: directory $infile";
@@ -118,10 +156,9 @@ sub main{
     logmsg "FILE: $infile";
 
     # Guess the file format
-    $guesser->file($infile);
+    my $format = guessFormat($infile, $settings);
     # ... but don't spin wheels on things we can't index
-    my $format = $guesser->guess;
-    if(!$format || $format eq 'raw'){
+    if(!$format){
       logmsg "SKIP: I do not understand format for $infile";
       next;
     }
@@ -179,6 +216,34 @@ sub indexerHelp{
   }
 
   die "ERROR: I do not understand $indexerName indexer. Run $0 --list for names.";
+}
+
+# Guess the format of the file
+# with inspiration from tseemann/any2fasta
+# Return "" if no format
+sub guessFormat{
+  my($file, $settings) = @_;
+
+  my $unzip = IO::Uncompress::AnyUncompress->new($file);
+  my @line;
+  while(my $l = <$unzip>){
+    last if(@line > 10); # really don't need a ton of lines
+    push(@line, $l);
+  }
+  close $unzip;
+
+  FORMAT:
+  while(my($format, $linesRegex) = each(%formats)){
+    for(my $i=0;$i<@$linesRegex;$i++){
+      # If this line doesn't match then go to the next format
+      if($line[$i] !~ $$linesRegex[$i]){
+        next FORMAT;
+      }
+    }
+    return $format;
+  }
+
+  return "";
 }
 
 sub usage{
