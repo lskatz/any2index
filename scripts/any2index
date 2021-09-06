@@ -5,6 +5,7 @@ use strict;
 use Data::Dumper;
 use Getopt::Long;
 use File::Basename qw/basename/;
+use List::MoreUtils qw/uniq/;
 #use Bio::Tools::GuessSeqFormat ();
 use IO::Uncompress::AnyUncompress;
 use File::Which qw/which/;
@@ -21,7 +22,7 @@ our $CITATION= "found at https://github.com/lskatz/any2index";
 #   * command => the linux command. __FILE__ for infile
 #   * help    => description
 #   * querying=> description on how to query this index
-#   * version => command that shows the version number of the software
+#   * version => command that shows the software and its version
 #   * citation=> command that shows the citation of the software
 my @requiredMethodKey = qw(name format command help querying version citation);
 my @indexes = (
@@ -31,7 +32,7 @@ my @indexes = (
     command => "samtools faidx __FILE__",
     help    => "Indexes for the samtools package",
     querying=> "samtools faidx __FILE__ contig:start-stop",
-    version => "samtools --version-only",
+    version => "samtools --version-only | sed 's/^/Samtools /'",
     citation=> "echo 'Samtools citation at http://www.htslib.org'",
   },
   {
@@ -58,7 +59,7 @@ my @indexes = (
     command => "mash sketch __FILE__",
     help    => "Sketches a fasta",
     querying=> "mash dist __FILE__",
-    version => "mash --version",
+    version => "mash --version | sed 's/^/Mash /'",
     citation=> "echo 'Mash citation at https://mash.readthedocs.io/en/latest'",
   },
   {
@@ -67,7 +68,7 @@ my @indexes = (
     command => "mash sketch __FILE__",
     help    => "Sketches a fastq.gz",
     querying=> "mash dist __FILE__",
-    version => "mash --version",
+    version => "mash --version | sed 's/^/Mash /'",
     citation=> "echo 'Mash citation at https://mash.readthedocs.io/en/latest'",
   },
   {
@@ -76,7 +77,7 @@ my @indexes = (
     command => "samtools index __FILE__",
     help    => "Indexes a bam for samtools",
     querying=> "samtools view __FILE__",
-    version => "samtools --version-only",
+    version => "samtools --version-only | sed 's/^/Samtools /'",
     citation=> "echo 'Samtools citation at http://www.htslib.org'",
   },
   {
@@ -85,7 +86,7 @@ my @indexes = (
     command => "samtools view -h __FILE__ > __FILE__.tmp && samtools sort -o __FILE__.bam __FILE__.tmp && rm __FILE__.tmp && samtools index __FILE__.bam",
     help    => "Indexes a bam for samtools",
     querying=> "samtools view __FILE__",
-    version => "samtools --version-only",
+    version => "samtools --version-only | sed 's/^/Samtools /'",
     citation=> "echo 'Samtools citation at http://www.htslib.org'",
   },
 );
@@ -129,31 +130,45 @@ sub logmsg{local $0=basename $0; print STDERR "$0: @_\n";}
 
 # Check executables
 sub checkEnv{
-  for my $exe(qw(samtools)){
-    which($exe) or logmsg "WARNING: could not find $exe in your path";
+  my $numFailures = 0;
+
+  my @exe = uniq sort{$a cmp $b} map{my $c=$$_{command}; $c=~s/\s+.*//; $c} @indexes;
+  for my $exe(@exe){
+    logmsg "Checking $exe";
+    my $path = which($exe);
+    if(!$path){
+      $path = "PATH NOT FOUND";
+      $numFailures++;
+    }
+    logmsg "  => $path";
   }
+
+  # TODO if any env variables need to be checked, this sub
+  # is a good place
+  
+  logmsg "Done checking env";
+  return $numFailures;
 }
 
 exit(main());
 
 sub main{
   my $settings={};
-  GetOptions($settings,qw(help help-with=s nocheck list dryrun|dry-run index-with=s version versions citation citations)) or die $!;
+  GetOptions($settings,qw(help help-with=s check! list dryrun|dry-run index-with=s version versions citation citations)) or die $!;
   usage() if($$settings{help});
 
   # By default, check dependencies. Users might not want
   # to check all dependencies and so they can stop it
   # with --nocheck
-  # TODO make sure this works
   if($$settings{check}){
-    checkEnv();
+    my $numFailures = checkEnv();
+    return $numFailures;
   }
   if($$settings{version}){
     print "$0 v$VERSION\n";
     return 0;
   }
   if($$settings{versions}){
-    ...;
     versions();
     return 0;
   }
@@ -162,7 +177,6 @@ sub main{
     return 0;
   }
   if($$settings{citations}){
-    ...;
     citations();
     return 0;
   }
@@ -180,7 +194,10 @@ sub main{
   }
 
   # Check for argv if we aren't running any special commands
-  usage() if(!@ARGV);
+  if(!@ARGV){
+    logmsg "No input files!";
+    usage();
+  }
 
   for my $infile(@ARGV){
     if(-d $infile){
@@ -259,6 +276,26 @@ sub indexerHelp{
   die "ERROR: I do not understand $indexerName indexer. Run $0 --list for names.";
 }
 
+sub citations{
+  my($settings) = @_;
+
+  my @c = sort{$a cmp $b} uniq(map {$$_{citation}} @indexes);
+  for my $cmd(@c){
+    system("$cmd 2>&1");
+    die "ERROR understanding the citation for one software using this command `$cmd`: $!" if($?);
+  }
+  return scalar(@c);
+}
+sub versions{
+  my($settings) = @_;
+
+  my @v = sort{$a cmp $b} uniq(map {$$_{version}} @indexes);
+  for my $cmd(@v){
+    system("$cmd 2>&1");
+    die "ERROR understanding the version for one software using this command `$cmd`: $!" if($?);
+  }
+}
+
 # Guess the format of the file
 # with inspiration from tseemann/any2fasta
 # Return "" if no format
@@ -291,7 +328,7 @@ sub usage{
   print "$0: indexes any bioinformatics file appropriately
   Usage: $0 [options] file.ext
   --list       List all the possible indexers
-  --nocheck    Do not check dependencies
+  --check      Check all dependencies
   --dry-run    Print the commands to stdout and do not execute
   --help-with  Give more help on a particular indexer
   --index-with Index the file(s) with a single named indexer
