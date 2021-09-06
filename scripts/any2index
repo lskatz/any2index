@@ -12,6 +12,7 @@ use FindBin qw/$RealBin/;
 use lib "$RealBin/../lib/perl5";
 
 our $VERSION = 0.5;
+our $CITATION= "found at https://github.com/lskatz/any2index";
 
 # An array of methods for indexing. Each method is a hash.
 # For each individual method, required keys are
@@ -20,7 +21,9 @@ our $VERSION = 0.5;
 #   * command => the linux command. __FILE__ for infile
 #   * help    => description
 #   * querying=> description on how to query this index
-my @requiredMethodKey = qw(name format command help querying);
+#   * version => command that shows the version number of the software
+#   * citation=> command that shows the citation of the software
+my @requiredMethodKey = qw(name format command help querying version citation);
 my @indexes = (
   {
     name    => "samtoolsFaidx",
@@ -28,6 +31,8 @@ my @indexes = (
     command => "samtools faidx __FILE__",
     help    => "Indexes for the samtools package",
     querying=> "samtools faidx __FILE__ contig:start-stop",
+    version => "samtools --version-only",
+    citation=> "echo 'Samtools citation at http://www.htslib.org'",
   },
   {
     name    => "bowtie2Build",
@@ -35,6 +40,8 @@ my @indexes = (
     command => "bowtie2-build __FILE__ __FILE__",
     help    => "Indexes for bowtie2",
     querying=> "bowtie2 -x __FILE__ -p __THREADS__ -1 R1.fastq.gz -2 R2.fastq.gz > out.sam",
+    version => "bowtie2-build --version | grep -m 1 version",
+    citation=> "bowtie2 --help 2>&1 | grep -m 1 ' by '",
   },
   {
     name    => "makeBlastDb",
@@ -42,6 +49,8 @@ my @indexes = (
     command => "makeblastdb -in __FILE__ -dbtype nucl -parse_seqids",
     help    => "Indexes BLASTn",
     querying=> "blastn -in __FILE__ -query QUERY.fasta",
+    version => "makeblastdb -version | head -n 1",
+    citation=> "echo 'Blast citation at https://blast.ncbi.nlm.nih.gov/Blast.cgi'",
   },
   {
     name    => "mashFasta",
@@ -49,6 +58,8 @@ my @indexes = (
     command => "mash sketch __FILE__",
     help    => "Sketches a fasta",
     querying=> "mash dist __FILE__",
+    version => "mash --version",
+    citation=> "echo 'Mash citation at https://mash.readthedocs.io/en/latest'",
   },
   {
     name    => "mashFastq",
@@ -56,6 +67,8 @@ my @indexes = (
     command => "mash sketch __FILE__",
     help    => "Sketches a fastq.gz",
     querying=> "mash dist __FILE__",
+    version => "mash --version",
+    citation=> "echo 'Mash citation at https://mash.readthedocs.io/en/latest'",
   },
   {
     name    => "samtoolsIndex",
@@ -63,6 +76,8 @@ my @indexes = (
     command => "samtools index __FILE__",
     help    => "Indexes a bam for samtools",
     querying=> "samtools view __FILE__",
+    version => "samtools --version-only",
+    citation=> "echo 'Samtools citation at http://www.htslib.org'",
   },
   {
     name    => "samtoolsIndex",
@@ -70,6 +85,8 @@ my @indexes = (
     command => "samtools view -h __FILE__ > __FILE__.tmp && samtools sort -o __FILE__.bam __FILE__.tmp && rm __FILE__.tmp && samtools index __FILE__.bam",
     help    => "Indexes a bam for samtools",
     querying=> "samtools view __FILE__",
+    version => "samtools --version-only",
+    citation=> "echo 'Samtools citation at http://www.htslib.org'",
   },
 );
 
@@ -121,19 +138,35 @@ exit(main());
 
 sub main{
   my $settings={};
-  GetOptions($settings,qw(help help-with=s nocheck list dryrun|dry-run index-with=s version)) or die $!;
+  GetOptions($settings,qw(help help-with=s nocheck list dryrun|dry-run index-with=s version versions citation citations)) or die $!;
   usage() if($$settings{help});
 
   # By default, check dependencies. Users might not want
   # to check all dependencies and so they can stop it
   # with --nocheck
-  if(defined($$settings{nocheck})){
+  # TODO make sure this works
+  if($$settings{check}){
     checkEnv();
   }
   if($$settings{version}){
     print "$0 v$VERSION\n";
     return 0;
   }
+  if($$settings{versions}){
+    ...;
+    versions();
+    return 0;
+  }
+  if($$settings{citation}){
+    print "$0 $CITATION\n";
+    return 0;
+  }
+  if($$settings{citations}){
+    ...;
+    citations();
+    return 0;
+  }
+
 
   sanityCheckOnIndexMethods($settings);
 
@@ -262,8 +295,11 @@ sub usage{
   --dry-run    Print the commands to stdout and do not execute
   --help-with  Give more help on a particular indexer
   --index-with Index the file(s) with a single named indexer
+  --citation   Citation for this software
+  --citations  Citations for indexers
+  --version    Version for this software
+  --versions   Citations for indexers
   --help       This useful help menu
-  --version
 ";
   exit 0;
 }
