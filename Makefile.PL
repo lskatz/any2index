@@ -24,8 +24,13 @@ WriteMakefile1(
     # Core modules
     'File::Basename' => 0,
     'Data::Dumper'   => 0,
-    'Bio::Tools::GuessSeqFormat' => 0,
     'File::Which' => 0,
+    'Getopt::Long' => 0,
+    'File::Spec'   => 0,
+    'File::Copy'   => 0,
+    'List::MoreUtils' => 0,
+    'IO::Uncompress::AnyUncompress' => 0,
+    FindBin => 0,
   },
   BUILD_REQUIRES => {
     'Test::More'     => 0.47,

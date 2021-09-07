@@ -16,6 +16,8 @@ The easiest thing to contribute is a new indexer, by adding onto the `@indexes` 
         command => "samtools faidx __FILE__",
         help    => "Indexes for the samtools package",
         querying=> "samtools faidx __FILE__ contig:start-stop",
+        version => "samtools --version-only | sed 's/^/Samtools /'",
+        citation=> "echo 'Samtools citation at http://www.htslib.org'",
       },
 
 In this example, we have a method we have called `samtoolsFaidx`
@@ -36,22 +38,12 @@ These are some ideas for more indexers
 |--------|-------|
 | fasta  | bwa build |
 | fasta  | smalt index |
-| fasta  | mash sketch |
-| fastq  | mash sketch |
 | bed | bedtools |
-| sam  | samtools view -b && sort && index |
 | vcf.gz | bcftools index |
 
 
 ## more ideas
 
-* temporary folder with all indices
-Strategy is to run this script in the background while using the temp dir. 
-Ctrl-c to clean up the folder. 
 * flag to ignore files it can't index
-* flag to specify exact index to run
-  * secondary flag for in depth vs fast
-  * tertiary flag to bring in custom options.
-    Or some kind of config. 
 * use sane defaults for all methods
 

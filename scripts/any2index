@@ -4,15 +4,16 @@ use warnings;
 use strict;
 use Data::Dumper;
 use Getopt::Long;
-use File::Basename qw/basename/;
+use File::Basename qw/basename dirname/;
+use File::Spec;
+use File::Copy qw/cp/;
 use List::MoreUtils qw/uniq/;
-#use Bio::Tools::GuessSeqFormat ();
 use IO::Uncompress::AnyUncompress;
 use File::Which qw/which/;
 use FindBin qw/$RealBin/;
 use lib "$RealBin/../lib/perl5";
 
-our $VERSION = 0.5;
+our $VERSION = 0.6;
 our $CITATION= "found at https://github.com/lskatz/any2index";
 
 # An array of methods for indexing. Each method is a hash.
@@ -154,7 +155,7 @@ exit(main());
 
 sub main{
   my $settings={};
-  GetOptions($settings,qw(help help-with=s check! list dryrun|dry-run index-with=s version versions citation citations)) or die $!;
+  GetOptions($settings,qw(help help-with=s check! outdir=s force! self-contained list dryrun|dry-run index-with=s version versions citation citations)) or die $!;
   usage() if($$settings{help});
 
   # By default, check dependencies. Users might not want
@@ -198,8 +199,46 @@ sub main{
     logmsg "No input files!";
     usage();
   }
+  my @infile = @ARGV;
+  
+  # Make the output directory if requested
+  my $outdir = $$settings{outdir};
+  if($outdir){
+    if(-e $outdir){
+      if($$settings{force}){
+        logmsg "Target directory exists, but --force was given.";
+        logmsg "removing directory contents $outdir";
+        sleep 2; # Give a very small chance to back out
+        system("rm -rf $outdir");
+      } else {
+        die "ERROR: target directory $outdir already exists!";
+      }
+    }
+    mkdir $outdir or die "ERROR making outdir $outdir: $!";
 
-  for my $infile(@ARGV){
+    for my $infile(@ARGV){
+      my $target = "$outdir/".basename($infile);
+      if($$settings{'self-contained'}){
+        cp($infile, $target) or die "ERROR copying $infile => $target: $!";
+      } else {
+        # Get a path to the target, relative to the outdir
+        my $absPath= File::Spec->rel2abs($infile);
+        my $relPath= File::Spec->abs2rel($absPath, $outdir);
+        symlink($relPath, $target) or die "ERROR symlinking $infile => $target: $!";
+      }
+    }
+
+    # If the output directory was specified, then all the
+    # input files have been copied or symlinked over.
+    # The only files in this directory therefore are the
+    # input files and we will alter the input file array
+    # accordingly.
+    chdir($outdir);
+    @infile = glob("*");
+  }
+
+  # Start indexing!
+  for my $infile(@infile){
     if(-d $infile){
       logmsg "SKIP: directory $infile";
       next;
@@ -224,6 +263,7 @@ sub main{
 # Run the indexers on the file
 sub indexTheFile{
   my($infile, $format, $settings) = @_;
+
   # Run the index commands
   for my $method (sort grep{$$_{format} eq $format} @indexes){
     # If a particular indexer was named, then only index with that.
@@ -310,11 +350,14 @@ sub guessFormat{
   }
   close $unzip;
 
+  my @format = sort keys(%formats);
   FORMAT:
-  while(my($format, $linesRegex) = each(%formats)){
-    for(my $i=0;$i<@$linesRegex;$i++){
+  for(my $i=0; $i<@format; $i++){
+    my $format = $format[$i];
+    my $linesRegex = $formats{$format};
+    for(my $j=0;$j<@$linesRegex;$j++){
       # If this line doesn't match then go to the next format
-      if($line[$i] !~ $$linesRegex[$i]){
+      if($line[$j] !~ $$linesRegex[$j]){
         next FORMAT;
       }
     }
@@ -327,6 +370,13 @@ sub guessFormat{
 sub usage{
   print "$0: indexes any bioinformatics file appropriately
   Usage: $0 [options] file.ext
+  --outdir     The output directory with all index files.
+               Without this option, all indexing is in place.
+  --self-contained
+               With --outdir, copy the source file to the 
+               output directory. Without this option, the
+               source file will be symlinked instead.
+  --force      Override target directory
   --list       List all the possible indexers
   --check      Check all dependencies
   --dry-run    Print the commands to stdout and do not execute
