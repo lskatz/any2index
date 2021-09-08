@@ -27,9 +27,16 @@ This list might not be comprehensive
 | format | index |
 |--------|-------|
 | fasta  | samtools faidx |
-| fasta  | bowie2-build |
 | fasta  | formatblastdb |
-| bam  | samtools sort && index |
+| fasta  | minimap2 ONT |
+| fasta  | minimap2 PacBio |
+| fasta  | bowie2-build |
+| fasta  | bwa |
+| fasta  | formatblastdb |
+| fasta  | mash |
+| fastq  | mash |
+| bam  | samtools index |
+| sam  | samtools view -b && sort && index |
 
 # contributions welcome
 
