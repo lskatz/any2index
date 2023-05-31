@@ -20,6 +20,13 @@ To get help on any one index:
 
     any2index --help-with bowtie2Build
 
+## check4index subcommand
+
+There is another command that checks for any indexes on target files.
+Currently only for blastn, blastp, and faidx.
+
+    check4index *.fasta
+
 # Highlighted indexes
 
 This list might not be comprehensive
@@ -36,7 +43,7 @@ This list might not be comprehensive
 | fasta  | mash |
 | fastq  | mash |
 | bam  | samtools index |
-| sam  | samtools view -b && sort && index |
+| sam  | samtools view -b && sort &&  index |
 
 # contributions welcome
 
