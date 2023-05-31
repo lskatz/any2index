@@ -13,7 +13,7 @@ use File::Which qw/which/;
 use FindBin qw/$RealBin/;
 use lib "$RealBin/../lib/perl5";
 
-our $VERSION = 0.6;
+our $VERSION = 0.7;
 our $CITATION= "found at https://github.com/lskatz/any2index";
 
 # An array of methods for indexing. Each method is a hash.

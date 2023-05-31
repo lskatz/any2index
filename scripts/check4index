@@ -1,0 +1,153 @@
+#!/usr/bin/env perl 
+
+use warnings;
+use strict;
+use Data::Dumper;
+use Getopt::Long;
+use File::Basename qw/basename dirname/;
+use File::Spec;
+use File::Copy qw/cp/;
+use List::MoreUtils qw/uniq/;
+use IO::Uncompress::AnyUncompress;
+use File::Which qw/which/;
+use FindBin qw/$RealBin/;
+use lib "$RealBin/../lib/perl5";
+
+# An array of methods for checking for index files
+# For each individual method, required keys are
+#   * name    => unique name for method
+#   * files   => array of files to look for in regex format with these variables:
+#     - %s to use the filename, e.g., something.fasta.fai
+#     - %b to use the basename, e.g., something.fai
+#   * command => the linux command if any to use to test files
+#   * help    => description
+my @requiredMethodKey = qw(name files command help);
+my @indexes = (
+  {
+    name    => "faidx",
+    files   => ["%s.fai"],
+    command => "",
+    help    => "Samtools faidx index",
+  },
+  {
+    name    => "blastn",
+    files   => [qw(%s(\.\d+)?\.nsq %s(\.\d+)?\.nhr %s(\.\d+)?\.nin)],
+    command => "",
+    help    => "Blastn index",
+  },
+  {
+    name    => "blastp",
+    files   => [qw(%s(\.\d+)?\.phr %s(\.\d+)?\.pin %s(\.\d+)?\.psq)],
+    command => "",
+    help    => "Blastp index",
+  },
+);
+
+# Ensure the integrity of the indexing hash
+sub sanityCheckOnIndexMethods{
+  my($settings) = @_;
+
+  for my $method (@indexes){
+    # Check for required keys
+    for my $key(@requiredMethodKey){
+      if(!defined $$method{$key}){
+        die "ERROR: index checking hash does not have a $key key:\n".Dumper($method);
+      }
+    }
+  }
+}
+
+local $0 = basename $0;
+sub logmsg{local $0=basename $0; print STDERR "$0: @_\n";}
+
+exit(main());
+
+sub main{
+  my $settings={};
+  GetOptions($settings,qw(help list)) or die $!;
+  usage() if($$settings{help});
+
+  # Internal check on @indexes
+  sanityCheckOnIndexMethods($settings);
+
+  if($$settings{list}){
+    listIndexers($settings);
+    return 0;
+  }
+
+  # Check for argv if we aren't running any special commands
+  if(!@ARGV){
+    logmsg "No input files!";
+    usage();
+  }
+  my @infile = @ARGV;
+  
+  # Start indexing!
+  for my $infile(@infile){
+    logmsg "FILE: $infile";
+
+    my $idxArr = checkForIndexes($infile, $settings);
+    print join("\t", $infile, join(",",@$idxArr))."\n";
+  }
+
+  return 0;
+}
+
+sub checkForIndexes{
+  my($path, $settings) = @_;
+  my $filename = basename($path);
+  my $basename = $filename;
+     $basename =~ s/\.+//;
+  #my @requiredMethodKey = qw(name files command help);
+  #my @indexes = (
+
+  # Open the directory with the target file and get all
+  # filenames.
+  my $dir = dirname($path);
+  opendir(my $dh, $dir) or die "ERROR: could not open directory $dir: $!";
+  my @localFile = readdir($dh);
+  closedir($dh);
+
+  my @foundIndex;
+  INDEX:
+  for(my $i=0;$i<@indexes;$i++){
+    my $idxHash = $indexes[$i];
+
+    # formulate the regex for finding files
+    my $regexArr = $$idxHash{files};
+    for my $r(@$regexArr){
+      $r =~ s/\%s/$filename/g;
+      $r =~ s/\%b/$basename/g;
+      if(!grep{/$r/} @localFile){
+        next INDEX;
+      }
+    }
+    # TODO run a command if it exists to sanity check the index
+
+    push(@foundIndex, $$idxHash{name});
+  }
+
+  return \@foundIndex;
+}
+
+# Print a pretty table for different indexing methods
+sub listIndexers{
+  my($settings) = @_;
+
+  print join("\t", qw(name help))."\n";
+  for my $m (sort {$$a{name} cmp $$b{name}} @indexes){
+    print join("\t", $$m{name}, $$m{help})."\n";
+  }
+}
+
+sub usage{
+  print "$0: indexes any bioinformatics file appropriately
+  Usage: $0 [options] files*
+  where files* are at least one file that can be indexed such as in.fasta
+  --force      Override target directory
+  --list       List all the possible indexes we can use 
+  --help       This useful help menu
+";
+  exit 0;
+}
+
